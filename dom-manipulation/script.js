@@ -18,9 +18,9 @@ function loadQuotes() {
     quotes = JSON.parse(storedQuotes);
   } else {
     quotes = [
-      { text: "The best way to get started is to quit talking and begin doing.", category: "Motivation" },
-      { text: "Life is what happens when you're busy making other plans.", category: "Life" },
-      { text: "Do what you can, with what you have, where you are.", category: "Inspiration" }
+      { id: Date.now(), text: "The best way to get started is to quit talking and begin doing.", category: "Motivation", updatedAt: new Date().toISOString() },
+      { id: Date.now() + 1, text: "Life is what happens when you're busy making other plans.", category: "Life", updatedAt: new Date().toISOString() },
+      { id: Date.now() + 2, text: "Do what you can, with what you have, where you are.", category: "Inspiration", updatedAt: new Date().toISOString() }
     ];
     saveQuotes();
   }
@@ -37,11 +37,8 @@ function populateCategories() {
     categoryFilter.appendChild(option);
   });
 
-  // Restore last selected category
   const savedCategory = localStorage.getItem("selectedCategory");
-  if (savedCategory) {
-    categoryFilter.value = savedCategory;
-  }
+  if (savedCategory) categoryFilter.value = savedCategory;
 }
 
 function filterQuotes() {
@@ -75,11 +72,13 @@ function addQuote() {
   const category = document.getElementById("newQuoteCategory").value.trim();
 
   if (text && category) {
-    const newQuote = { text, category };
+    const newQuote = { id: Date.now(), text, category, updatedAt: new Date().toISOString() };
     quotes.push(newQuote);
     saveQuotes();
-    populateCategories(); // ✅ update dropdown with new category if needed
+    populateCategories();
     filterQuotes();
+
+    syncQuoteToServer(newQuote); // ✅ send to server
 
     document.getElementById("newQuoteText").value = "";
     document.getElementById("newQuoteCategory").value = "";
@@ -137,13 +136,71 @@ function importFromJsonFile(event) {
         populateCategories();
         alert("Quotes imported successfully!");
       } else {
-        alert("Invalid JSON format. Expected an array of quotes.");
+        alert("Invalid JSON format.");
       }
     } catch {
       alert("Error reading JSON file.");
     }
   };
   fileReader.readAsText(event.target.files[0]);
+}
+
+// ---------- Server Sync Simulation ----------
+async function fetchQuotesFromServer() {
+  try {
+    const res = await fetch("https://jsonplaceholder.typicode.com/posts?_limit=5");
+    const serverData = await res.json();
+
+    // Convert server data into quotes format
+    const serverQuotes = serverData.map(post => ({
+      id: post.id,
+      text: post.title,
+      category: "Server",
+      updatedAt: new Date().toISOString()
+    }));
+
+    // Conflict resolution: server wins
+    quotes = [...quotes, ...serverQuotes].reduce((acc, quote) => {
+      if (!acc.find(q => q.id === quote.id)) {
+        acc.push(quote);
+      }
+      return acc;
+    }, []);
+
+    saveQuotes();
+    populateCategories();
+    filterQuotes();
+
+    notifyUser("Quotes synced with server!");
+  } catch (err) {
+    console.error("Error syncing with server:", err);
+  }
+}
+
+async function syncQuoteToServer(quote) {
+  try {
+    await fetch("https://jsonplaceholder.typicode.com/posts", {
+      method: "POST",
+      body: JSON.stringify(quote),
+      headers: { "Content-Type": "application/json" }
+    });
+    notifyUser("Quote synced to server!");
+  } catch (err) {
+    console.error("Error posting quote:", err);
+  }
+}
+
+// ---------- Conflict Handling ----------
+function notifyUser(message) {
+  const notification = document.createElement("div");
+  notification.textContent = message;
+  notification.style.background = "#fffae6";
+  notification.style.border = "1px solid #ccc";
+  notification.style.padding = "5px";
+  notification.style.margin = "5px";
+  document.body.appendChild(notification);
+
+  setTimeout(() => notification.remove(), 3000);
 }
 
 // ---------- Event Listeners ----------
@@ -157,3 +214,7 @@ loadQuotes();
 createAddQuoteForm();
 populateCategories();
 filterQuotes();
+fetchQuotesFromServer();
+
+// Periodic sync every 30 seconds
+setInterval(fetchQuotesFromServer, 30000);
