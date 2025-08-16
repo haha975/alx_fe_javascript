@@ -1,10 +1,11 @@
 let quotes = [];
 
-// Select DOM elements
+// DOM elements
 const quoteDisplay = document.getElementById("quoteDisplay");
 const newQuoteButton = document.getElementById("newQuote");
 const exportButton = document.getElementById("exportQuotes");
 const importInput = document.getElementById("importFile");
+const categoryFilter = document.getElementById("categoryFilter");
 
 // ---------- Local Storage Helpers ----------
 function saveQuotes() {
@@ -16,7 +17,6 @@ function loadQuotes() {
   if (storedQuotes) {
     quotes = JSON.parse(storedQuotes);
   } else {
-    // Default quotes if storage is empty
     quotes = [
       { text: "The best way to get started is to quit talking and begin doing.", category: "Motivation" },
       { text: "Life is what happens when you're busy making other plans.", category: "Life" },
@@ -26,18 +26,48 @@ function loadQuotes() {
   }
 }
 
-// ---------- DOM Functions ----------
+// ---------- Category Handling ----------
+function populateCategories() {
+  const categories = [...new Set(quotes.map(q => q.category))];
+  categoryFilter.innerHTML = `<option value="all">All Categories</option>`;
+  categories.forEach(cat => {
+    const option = document.createElement("option");
+    option.value = cat;
+    option.textContent = cat;
+    categoryFilter.appendChild(option);
+  });
+
+  // Restore last selected category
+  const savedCategory = localStorage.getItem("selectedCategory");
+  if (savedCategory) {
+    categoryFilter.value = savedCategory;
+  }
+}
+
+function filterQuotes() {
+  const selectedCategory = categoryFilter.value;
+  localStorage.setItem("selectedCategory", selectedCategory);
+
+  let filteredQuotes = quotes;
+  if (selectedCategory !== "all") {
+    filteredQuotes = quotes.filter(q => q.category === selectedCategory);
+  }
+
+  if (filteredQuotes.length > 0) {
+    const randomIndex = Math.floor(Math.random() * filteredQuotes.length);
+    const quote = filteredQuotes[randomIndex];
+    quoteDisplay.innerHTML = `
+      <p>"${quote.text}"</p>
+      <small>— ${quote.category}</small>
+    `;
+  } else {
+    quoteDisplay.innerHTML = `<p>No quotes found for this category.</p>`;
+  }
+}
+
+// ---------- Quote Functions ----------
 function showRandomQuote() {
-  const randomIndex = Math.floor(Math.random() * quotes.length);
-  const quote = quotes[randomIndex];
-
-  quoteDisplay.innerHTML = `
-    <p>"${quote.text}"</p>
-    <small>— ${quote.category}</small>
-  `;
-
-  // Save last viewed quote in sessionStorage
-  sessionStorage.setItem("lastQuote", JSON.stringify(quote));
+  filterQuotes();
 }
 
 function addQuote() {
@@ -47,15 +77,12 @@ function addQuote() {
   if (text && category) {
     const newQuote = { text, category };
     quotes.push(newQuote);
-    saveQuotes(); // Persist in localStorage
+    saveQuotes();
+    populateCategories(); // ✅ update dropdown with new category if needed
+    filterQuotes();
 
     document.getElementById("newQuoteText").value = "";
     document.getElementById("newQuoteCategory").value = "";
-
-    quoteDisplay.innerHTML = `
-      <p>"${newQuote.text}"</p>
-      <small>— ${newQuote.category}</small>
-    `;
   } else {
     alert("Please fill in both fields!");
   }
@@ -107,6 +134,7 @@ function importFromJsonFile(event) {
       if (Array.isArray(importedQuotes)) {
         quotes.push(...importedQuotes);
         saveQuotes();
+        populateCategories();
         alert("Quotes imported successfully!");
       } else {
         alert("Invalid JSON format. Expected an array of quotes.");
@@ -122,19 +150,10 @@ function importFromJsonFile(event) {
 newQuoteButton.addEventListener("click", showRandomQuote);
 exportButton.addEventListener("click", exportToJsonFile);
 importInput.addEventListener("change", importFromJsonFile);
+categoryFilter.addEventListener("change", filterQuotes);
 
 // ---------- Initialize ----------
 loadQuotes();
 createAddQuoteForm();
-
-// Show last viewed quote if available
-const lastQuote = sessionStorage.getItem("lastQuote");
-if (lastQuote) {
-  const quote = JSON.parse(lastQuote);
-  quoteDisplay.innerHTML = `
-    <p>"${quote.text}"</p>
-    <small>— ${quote.category}</small>
-  `;
-} else {
-  showRandomQuote();
-}
+populateCategories();
+filterQuotes();
