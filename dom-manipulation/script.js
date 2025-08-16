@@ -29,13 +29,13 @@ function addQuote() {
 
   if (text && category) {
     const newQuote = { text, category };
-    quotes.push(newQuote);
+    quotes.push(newQuote); // Add new quote to the array
 
     // Clear inputs
     newQuoteText.value = "";
     newQuoteCategory.value = "";
 
-    // Immediately show new quote
+    // Show the new quote immediately
     quoteDisplay.innerHTML = `
       <p>"${newQuote.text}"</p>
       <small>— ${newQuote.category}</small>
@@ -49,5 +49,5 @@ function addQuote() {
 newQuoteButton.addEventListener("click", showRandomQuote);
 addQuoteButton.addEventListener("click", addQuote);
 
-// Show first quote on page load
+// Show first random quote on page load
 showRandomQuote();
